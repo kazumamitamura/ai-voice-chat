@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import Link from "next/link";
 
 // ---------- Types ----------
 interface Message {
@@ -134,6 +135,13 @@ export default function PersonaChat() {
       <header className="sticky top-0 z-10 border-b-4 border-orange-500 bg-gradient-to-r from-orange-500 to-red-500 px-4 py-4 shadow-lg">
         <div className="mx-auto flex max-w-2xl items-center justify-between">
           <div className="flex items-center gap-3">
+            <Link
+              href="/"
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-white/20 text-lg transition hover:bg-white/30"
+              title="ホームに戻る"
+            >
+              🏠
+            </Link>
             <span className="text-3xl" role="img" aria-label="fire">
               🔥
             </span>

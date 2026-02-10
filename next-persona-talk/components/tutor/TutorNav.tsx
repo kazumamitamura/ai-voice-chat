@@ -11,6 +11,7 @@ export default function TutorNav() {
   const [menuOpen, setMenuOpen] = useState(false);
 
   const navItems = [
+    { href: "/", label: "ホーム", icon: "🏠" },
     { href: "/tutor", label: "チャット（学習）", icon: "💬" },
     { href: "/tutor/admin", label: "管理画面（先生用）", icon: "📊" },
   ];

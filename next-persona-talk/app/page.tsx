@@ -49,6 +49,24 @@ export default function Home() {
               </p>
             </div>
           </Link>
+
+          {/* My Gems */}
+          <Link
+            href="/gems"
+            className="group flex items-center gap-4 rounded-2xl border border-purple-500/30 bg-gradient-to-r from-purple-500/10 to-pink-500/10 p-5 text-left shadow-lg transition hover:border-purple-500/60 hover:from-purple-500/20 hover:to-pink-500/20 hover:shadow-purple-500/10"
+          >
+            <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 text-2xl shadow-md">
+              💎
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-white group-hover:text-purple-300">
+                My Gems
+              </h2>
+              <p className="mt-0.5 text-xs text-gray-400">
+                自分だけの AI ペルソナを作成して会話しよう
+              </p>
+            </div>
+          </Link>
         </div>
       </div>
     </div>
