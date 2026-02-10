@@ -1,0 +1,38 @@
+【プロジェクト管理シート】
+フォルダ名： ai-voice-chat
+作成日： 2026/02/10
+
+■ Google AI Studio (Gemini API)
+----------------------------------------
+使用したGoogleアカウント： waw2716@gmail.com
+プロジェクト名： ai-voice-chat
+APIキー：AIzaSyDhSuxkP1MX_7d3Qaj5DeAXz2ByzoSdPi8
+----------------------------------------
+
+■ アプリの概要
+AIの人格（Persona）を設定して、音声で会話するチャットアプリ。
+
+
+Create API Key
+
+
+<.envl>参考RESEDなどは変更の余地あり
+
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=https://otsvbxdfsaanpkbncxhj.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im90c3ZieGRmc2FhbnBrYm5jeGhqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkwMDA4OTEsImV4cCI6MjA4NDU3Njg5MX0.e3fMOJYLm54D9p8oxi2O-7-PZMF7zpJx9yO5eUsWAvI
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im90c3ZieGRmc2FhbnBrYm5jeGhqIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2OTAwMDg5MSwiZXhwIjoyMDg0NTc2ODkxfQ.o48eC7Ug579ewol0PBecGA4gBoBEhIxai4h8d7nuMZs
+
+# SMTP（Supabase の SMTP Settings と同じ値を入力）
+SMTP_HOST=smtp.resend.com
+SMTP_PORT=465
+SMTP_USER=resend
+SMTP_PASS=re_UC9iX1vg_CycbyLFdJ3Q79Qb6ARXqLVJP
+SMTP_FROM=noreply@mitamura-lab.com
+SMTP_FROM_NAME=羽黒高等学校 事務室
+
+# 管理者メール
+ADMIN_EMAIL=mitamuraka@haguroko.ed.jp
+
+# App URL (認証リンク用)
+NEXT_PUBLIC_APP_URL=https://shinro-app.vercel.app
