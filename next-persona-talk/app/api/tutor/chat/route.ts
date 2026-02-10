@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
     ];
 
     const chatCompletion = await groq.chat.completions.create({
-      model: "llama3-8b-8192",
+      model: "llama3-8b-8192-vision",
       messages,
       temperature: 0.7,
       max_tokens: 512,
