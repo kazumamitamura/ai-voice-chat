@@ -158,17 +158,17 @@ export default function GemsPage() {
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="例: 英語の先生"
-                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                    className="w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-base font-medium text-black outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
                   />
                   <label className="mb-1 mt-3 block text-xs font-medium text-slate-500">
                     説明
                   </label>
-                  <input
-                    type="text"
+                  <textarea
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
-                    placeholder="例: 優しく英語を教えてくれる"
-                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                    placeholder="例: 優しく英語を教えてくれるチューター。初心者にもわかりやすく説明してくれます。"
+                    rows={3}
+                    className="w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-base text-black outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
                   />
                 </div>
               </div>
@@ -182,8 +182,8 @@ export default function GemsPage() {
                   value={systemInstruction}
                   onChange={(e) => setSystemInstruction(e.target.value)}
                   placeholder={`AIの振る舞いを詳しく記述してください。\n例:\n- あなたは優しい英語の先生です。\n- 日本語で説明しながら英語を教えてください。\n- 回答は200文字以内にしてください。`}
-                  rows={8}
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm leading-relaxed text-slate-800 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                  rows={10}
+                  className="w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-base leading-relaxed text-black outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
                 />
                 <p className="mt-1 text-xs text-slate-400">
                   ここに書いた内容がAIの人格・ルールになります。具体的に書くほど望む会話が得られます。

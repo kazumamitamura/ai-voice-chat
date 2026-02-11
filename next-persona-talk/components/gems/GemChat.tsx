@@ -10,17 +10,46 @@ interface Message {
 }
 
 // TTS
-function speak(text: string, onEnd?: () => void) {
+let voicesLoaded = false;
+
+function ensureVoices(): Promise<SpeechSynthesisVoice[]> {
+  return new Promise((resolve) => {
+    const synth = window.speechSynthesis;
+    const voices = synth.getVoices();
+    if (voices.length > 0) {
+      voicesLoaded = true;
+      resolve(voices);
+      return;
+    }
+    if (!voicesLoaded) {
+      synth.onvoiceschanged = () => {
+        voicesLoaded = true;
+        resolve(synth.getVoices());
+      };
+      // タイムアウト: 1秒待っても読み込まれなければ空で返す
+      setTimeout(() => resolve(synth.getVoices()), 1000);
+    } else {
+      resolve(voices);
+    }
+  });
+}
+
+async function speak(text: string, onEnd?: () => void) {
   if (typeof window === "undefined" || !window.speechSynthesis) return;
   window.speechSynthesis.cancel();
+
+  const voices = await ensureVoices();
+
   const u = new SpeechSynthesisUtterance(text);
   u.lang = "ja-JP";
   u.rate = 1.0;
   u.pitch = 1.0;
-  const voices = window.speechSynthesis.getVoices();
   const ja = voices.find((v) => v.lang.startsWith("ja"));
   if (ja) u.voice = ja;
   if (onEnd) u.onend = onEnd;
+  u.onerror = () => {
+    if (onEnd) onEnd();
+  };
   window.speechSynthesis.speak(u);
 }
 
@@ -89,7 +118,7 @@ export default function GemChat({ gem }: { gem: Gem }) {
 
       if (ttsEnabled) {
         setIsSpeaking(true);
-        speak(data.reply, () => setIsSpeaking(false));
+        await speak(data.reply, () => setIsSpeaking(false));
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "エラーが発生しました");
