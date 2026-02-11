@@ -9,25 +9,34 @@ interface Message {
   content: string;
 }
 
-// ---------- TTS ----------
-function speak(text: string, onEnd?: () => void) {
+// ---------- TTS（アンロック後は自動再生可能）----------
+function getVoicesAsync(): Promise<SpeechSynthesisVoice[]> {
+  return new Promise((resolve) => {
+    const voices = window.speechSynthesis.getVoices();
+    if (voices.length > 0) {
+      resolve(voices);
+      return;
+    }
+    window.speechSynthesis.onvoiceschanged = () =>
+      resolve(window.speechSynthesis.getVoices());
+    setTimeout(() => resolve(window.speechSynthesis.getVoices()), 500);
+  });
+}
+
+async function speak(text: string, onEnd?: () => void) {
   if (typeof window === "undefined" || !window.speechSynthesis) return;
-
-  // 読み上げ中なら一旦キャンセル
   window.speechSynthesis.cancel();
+  if (!text.trim()) return;
 
+  const voices = await getVoicesAsync();
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.lang = "ja-JP";
   utterance.rate = 1.2;
   utterance.pitch = 1.0;
-
-  // 日本語ボイスを優先的に選択
-  const voices = window.speechSynthesis.getVoices();
-  const jaVoice = voices.find((v) => v.lang.startsWith("ja"));
-  if (jaVoice) utterance.voice = jaVoice;
-
+  const ja = voices.find((v) => v.lang.startsWith("ja"));
+  if (ja) utterance.voice = ja;
   if (onEnd) utterance.onend = onEnd;
-
+  utterance.onerror = () => onEnd?.();
   window.speechSynthesis.speak(utterance);
 }
 
@@ -37,6 +46,14 @@ function stopSpeaking() {
   }
 }
 
+function unlockSpeech() {
+  if (typeof window === "undefined" || !window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
+  const empty = new SpeechSynthesisUtterance("");
+  empty.volume = 0;
+  window.speechSynthesis.speak(empty);
+}
+
 // ---------- Component ----------
 export default function PersonaChat() {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -44,9 +61,11 @@ export default function PersonaChat() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [unlocked, setUnlocked] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const lastSpokenIndexRef = useRef(-1);
 
   // 音声リスト読み込み（初回）
   useEffect(() => {
@@ -72,6 +91,19 @@ export default function PersonaChat() {
     }, 200);
     return () => clearInterval(interval);
   }, []);
+
+  // アンロック済みかつ最新がAIメッセージなら自動読み上げ
+  useEffect(() => {
+    if (!unlocked || messages.length === 0) return;
+    const last = messages[messages.length - 1];
+    if (last.role !== "assistant") return;
+    if (lastSpokenIndexRef.current >= messages.length - 1) return;
+    lastSpokenIndexRef.current = messages.length - 1;
+    setIsSpeaking(true);
+    speak(last.content, () => setIsSpeaking(false)).catch(() =>
+      setIsSpeaking(false)
+    );
+  }, [messages, unlocked]);
 
   const sendMessage = useCallback(async () => {
     const trimmed = input.trim();
@@ -105,10 +137,7 @@ export default function PersonaChat() {
         content: data.reply,
       };
       setMessages([...updatedMessages, assistantMessage]);
-
-      // AIの回答を自動で読み上げ
-      setIsSpeaking(true);
-      speak(data.reply, () => setIsSpeaking(false));
+      // 音声は各メッセージの「読み上げ」ボタンから再生（ブラウザのユーザー操作制限のため）
     } catch (err) {
       setError(err instanceof Error ? err.message : "エラーが発生しました");
     } finally {
@@ -128,6 +157,37 @@ export default function PersonaChat() {
     stopSpeaking();
     setIsSpeaking(false);
   };
+
+  // アンロック前: 会話を始めるオーバーレイ
+  if (!unlocked) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-orange-500 to-red-500 px-4">
+        <div className="flex max-w-sm flex-col items-center gap-6 text-center">
+          <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-white/20 text-4xl shadow-lg">
+            🔥
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-white">
+              熱血パーソナトーク
+            </h2>
+            <p className="mt-1 text-sm text-white/90">
+              音声で会話を始めるには、下のボタンを押してください
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              unlockSpeech();
+              setUnlocked(true);
+            }}
+            className="w-full rounded-2xl bg-white px-8 py-4 text-lg font-bold text-orange-600 shadow-lg transition hover:bg-white/95 active:scale-[0.98]"
+          >
+            会話を始める（Start Conversation）
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-gradient-to-b from-orange-50 to-orange-100">

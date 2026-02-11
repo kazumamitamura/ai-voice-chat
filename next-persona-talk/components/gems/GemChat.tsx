@@ -37,9 +37,9 @@ function ensureVoices(): Promise<SpeechSynthesisVoice[]> {
 async function speak(text: string, onEnd?: () => void) {
   if (typeof window === "undefined" || !window.speechSynthesis) return;
   window.speechSynthesis.cancel();
+  if (!text.trim()) return;
 
   const voices = await ensureVoices();
-
   const u = new SpeechSynthesisUtterance(text);
   u.lang = "ja-JP";
   u.rate = 1.0;
@@ -47,15 +47,21 @@ async function speak(text: string, onEnd?: () => void) {
   const ja = voices.find((v) => v.lang.startsWith("ja"));
   if (ja) u.voice = ja;
   if (onEnd) u.onend = onEnd;
-  u.onerror = () => {
-    if (onEnd) onEnd();
-  };
+  u.onerror = () => onEnd?.();
   window.speechSynthesis.speak(u);
 }
 
 function stopSpeaking() {
   if (typeof window !== "undefined" && window.speechSynthesis)
     window.speechSynthesis.cancel();
+}
+
+function unlockSpeech() {
+  if (typeof window === "undefined" || !window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
+  const empty = new SpeechSynthesisUtterance("");
+  empty.volume = 0;
+  window.speechSynthesis.speak(empty);
 }
 
 export default function GemChat({ gem }: { gem: Gem }) {
@@ -65,9 +71,11 @@ export default function GemChat({ gem }: { gem: Gem }) {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [ttsEnabled, setTtsEnabled] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [unlocked, setUnlocked] = useState(false);
 
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const lastSpokenIndexRef = useRef(-1);
 
   useEffect(() => {
     if (typeof window !== "undefined" && window.speechSynthesis) {
@@ -88,6 +96,19 @@ export default function GemChat({ gem }: { gem: Gem }) {
     }, 200);
     return () => clearInterval(i);
   }, []);
+
+  // アンロック済みかつ音声ONかつ最新がAIメッセージなら自動読み上げ
+  useEffect(() => {
+    if (!unlocked || !ttsEnabled || messages.length === 0) return;
+    const last = messages[messages.length - 1];
+    if (last.role !== "assistant") return;
+    if (lastSpokenIndexRef.current >= messages.length - 1) return;
+    lastSpokenIndexRef.current = messages.length - 1;
+    setIsSpeaking(true);
+    speak(last.content, () => setIsSpeaking(false)).catch(() =>
+      setIsSpeaking(false)
+    );
+  }, [messages, unlocked, ttsEnabled]);
 
   const sendMessage = useCallback(async () => {
     const trimmed = input.trim();
@@ -116,17 +137,14 @@ export default function GemChat({ gem }: { gem: Gem }) {
       const assistantMsg: Message = { role: "assistant", content: data.reply };
       setMessages([...updated, assistantMsg]);
 
-      if (ttsEnabled) {
-        setIsSpeaking(true);
-        await speak(data.reply, () => setIsSpeaking(false));
-      }
+      // 音声は各メッセージの「読み上げ」ボタンから再生（ブラウザのユーザー操作制限のため）
     } catch (err) {
       setError(err instanceof Error ? err.message : "エラーが発生しました");
     } finally {
       setIsLoading(false);
       inputRef.current?.focus();
     }
-  }, [input, isLoading, messages, ttsEnabled, gem.systemInstruction]);
+  }, [input, isLoading, messages, gem.systemInstruction]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" && !e.nativeEvent.isComposing) {
@@ -134,6 +152,35 @@ export default function GemChat({ gem }: { gem: Gem }) {
       sendMessage();
     }
   };
+
+  // アンロック前: 会話を始めるオーバーレイ
+  if (!unlocked) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-indigo-500 to-blue-600 px-4">
+        <div className="flex max-w-sm flex-col items-center gap-6 text-center">
+          <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-white/20 text-4xl shadow-lg">
+            {gem.icon}
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-white">{gem.name}</h2>
+            <p className="mt-1 text-sm text-white/90">
+              音声で会話を始めるには、下のボタンを押してください
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              unlockSpeech();
+              setUnlocked(true);
+            }}
+            className="w-full rounded-2xl bg-white px-8 py-4 text-lg font-bold text-indigo-600 shadow-lg transition hover:bg-white/95 active:scale-[0.98]"
+          >
+            会話を始める（Start Conversation）
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-gradient-to-b from-slate-50 to-slate-100">

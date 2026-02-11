@@ -30,21 +30,34 @@ function extractSaveData(text: string) {
   }
 }
 
-// ========== TTS ==========
-function speak(text: string, onEnd?: () => void) {
+// ========== TTS（アンロック後は自動再生可能）==========
+function getVoicesAsync(): Promise<SpeechSynthesisVoice[]> {
+  return new Promise((resolve) => {
+    const voices = window.speechSynthesis.getVoices();
+    if (voices.length > 0) {
+      resolve(voices);
+      return;
+    }
+    window.speechSynthesis.onvoiceschanged = () =>
+      resolve(window.speechSynthesis.getVoices());
+    setTimeout(() => resolve(window.speechSynthesis.getVoices()), 500);
+  });
+}
+
+async function speak(text: string, onEnd?: () => void) {
   if (typeof window === "undefined" || !window.speechSynthesis) return;
   window.speechSynthesis.cancel();
+  if (!text.trim()) return;
 
+  const voices = await getVoicesAsync();
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.lang = "ja-JP";
   utterance.rate = 1.0;
   utterance.pitch = 1.0;
-
-  const voices = window.speechSynthesis.getVoices();
-  const jaVoice = voices.find((v) => v.lang.startsWith("ja"));
-  if (jaVoice) utterance.voice = jaVoice;
-
+  const ja = voices.find((v) => v.lang.startsWith("ja"));
+  if (ja) utterance.voice = ja;
   if (onEnd) utterance.onend = onEnd;
+  utterance.onerror = () => onEnd?.();
   window.speechSynthesis.speak(utterance);
 }
 
@@ -52,6 +65,15 @@ function stopSpeaking() {
   if (typeof window !== "undefined" && window.speechSynthesis) {
     window.speechSynthesis.cancel();
   }
+}
+
+/** ユーザー操作で音声再生をアンロック（空の speak を1回実行） */
+function unlockSpeech() {
+  if (typeof window === "undefined" || !window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
+  const empty = new SpeechSynthesisUtterance("");
+  empty.volume = 0;
+  window.speechSynthesis.speak(empty);
 }
 
 // ========== Component ==========
@@ -64,9 +86,11 @@ export default function TutorChat() {
   const [error, setError] = useState<string | null>(null);
   const [saveNotice, setSaveNotice] = useState<string | null>(null);
   const [initialized, setInitialized] = useState(false);
+  const [unlocked, setUnlocked] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const lastSpokenIndexRef = useRef(-1);
 
   // 音声リスト読み込み
   useEffect(() => {
@@ -93,24 +117,15 @@ export default function TutorChat() {
     return () => clearInterval(interval);
   }, []);
 
-  // 初回挨拶を自動送信
+  // 初回挨拶を自動送信（音声はユーザーが「読み上げ」ボタンを押すまで再生しない）
   useEffect(() => {
     if (initialized) return;
     setInitialized(true);
-
     const greeting: Message = {
       role: "assistant",
       content: "こんにちは！今日は何の勉強をする？",
     };
     setMessages([greeting]);
-
-    // 初回挨拶を音声で読み上げ
-    setTimeout(() => {
-      if (ttsEnabled) {
-        setIsSpeaking(true);
-        speak(greeting.content, () => setIsSpeaking(false));
-      }
-    }, 500);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -120,6 +135,19 @@ export default function TutorChat() {
     const timer = setTimeout(() => setSaveNotice(null), 4000);
     return () => clearTimeout(timer);
   }, [saveNotice]);
+
+  // アンロック済みかつ最新がAIメッセージなら自動読み上げ
+  useEffect(() => {
+    if (!unlocked || !ttsEnabled || messages.length === 0) return;
+    const last = messages[messages.length - 1];
+    if (last.role !== "assistant") return;
+    if (lastSpokenIndexRef.current >= messages.length - 1) return;
+    lastSpokenIndexRef.current = messages.length - 1;
+    setIsSpeaking(true);
+    speak(last.content, () => setIsSpeaking(false)).catch(() =>
+      setIsSpeaking(false)
+    );
+  }, [messages, unlocked, ttsEnabled]);
 
   const sendMessage = useCallback(async () => {
     const trimmed = input.trim();
@@ -166,19 +194,14 @@ export default function TutorChat() {
           );
         }
       }
-
-      // TTS
-      if (ttsEnabled) {
-        setIsSpeaking(true);
-        speak(cleanText, () => setIsSpeaking(false));
-      }
+      // 音声は各メッセージの「読み上げ」ボタンから再生（ブラウザのユーザー操作制限のため）
     } catch (err) {
       setError(err instanceof Error ? err.message : "エラーが発生しました");
     } finally {
       setIsLoading(false);
       inputRef.current?.focus();
     }
-  }, [input, isLoading, messages, ttsEnabled]);
+  }, [input, isLoading, messages]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" && !e.nativeEvent.isComposing) {
@@ -186,6 +209,37 @@ export default function TutorChat() {
       sendMessage();
     }
   };
+
+  // アンロック前: 会話を始めるオーバーレイ
+  if (!unlocked) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center bg-[#6B8BB2] px-4">
+        <div className="flex max-w-sm flex-col items-center gap-6 text-center">
+          <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-white/20 text-4xl shadow-lg">
+            📚
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-white">
+              AI学習チューター
+            </h2>
+            <p className="mt-1 text-sm text-white/80">
+              音声で会話を始めるには、下のボタンを押してください
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              unlockSpeech();
+              setUnlocked(true);
+            }}
+            className="w-full rounded-2xl bg-white px-8 py-4 text-lg font-bold text-[#6B8BB2] shadow-lg transition hover:bg-white/95 active:scale-[0.98]"
+          >
+            会話を始める（Start Conversation）
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-1 flex-col bg-[#7494C0]">
@@ -254,7 +308,6 @@ export default function TutorChat() {
                     : "rounded-bl-md bg-white text-gray-800"
                 }`}
               >
-                {/* LINE風の三角 */}
                 {msg.role === "assistant" && (
                   <div className="absolute -left-1.5 top-3 h-3 w-3 rotate-45 bg-white" />
                 )}
